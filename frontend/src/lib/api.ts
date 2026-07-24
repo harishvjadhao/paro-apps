@@ -1,5 +1,8 @@
 import axios from "axios";
 
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL?.trim() || "http://127.0.0.1:8000/api";
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -133,7 +136,7 @@ export interface SyncTriggerRequest {
 }
 
 const client = axios.create({
-  baseURL: "http://127.0.0.1:8000/api",
+  baseURL: apiBaseUrl,
 });
 
 export async function fetchStocks(): Promise<StockListData> {

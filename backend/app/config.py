@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     cors_origin: str = Field(default="http://127.0.0.1:5173")
 
     @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origin.split(",") if origin.strip()]
+
+    @property
     def sqlite_url(self) -> str:
         config_root = Path(__file__).resolve().parents[2]
         db_file = Path(self.db_path)

@@ -18,6 +18,7 @@ from app.services.sync_service import (
     SYNC_MODE_FULL,
     _build_sync_warning,
     _download_history,
+    _download_history_with_retry,
     _upsert_indicators,
     _upsert_price_history,
     run_sync,
@@ -220,6 +221,24 @@ def test_download_history_flattens_multiindex_columns(monkeypatch) -> None:
     assert list(normalized.columns) == ["Date", "Adj Close", "Close", "High", "Low", "Open", "Volume"]
     assert pd.Timestamp(normalized.loc[0, "Date"]) == pd.Timestamp("2026-07-23T00:00:00Z")
     assert normalized.loc[0, "Close"] == 101.0
+
+
+def test_download_history_with_retry_retries_empty_response(monkeypatch) -> None:
+    history = build_history([100.0, 101.0])
+    calls = {"count": 0}
+
+    def fake_download(*args, **kwargs) -> pd.DataFrame:
+        calls["count"] += 1
+        if calls["count"] < 3:
+            return pd.DataFrame()
+        return history
+
+    monkeypatch.setattr("app.services.sync_service._download_history", fake_download)
+
+    normalized = _download_history_with_retry("ABB.NS", attempts=3, retry_delay_seconds=0)
+
+    assert len(normalized) == 2
+    assert calls["count"] == 3
 
 
 def test_run_sync_allows_parallel_reads_after_start_log_commit(tmp_path: Path, monkeypatch) -> None:

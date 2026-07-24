@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
@@ -26,6 +27,9 @@ SYNC_STATUS_FAILED = "failed"
 SYNC_MODE_FULL = "full"
 SYNC_MODE_INCREMENTAL = "incremental"
 SYNC_MODE_SINGLE_STOCK = "single_stock"
+
+DOWNLOAD_RETRY_ATTEMPTS = 3
+DOWNLOAD_RETRY_DELAY_SECONDS = 1.0
 
 
 @dataclass
@@ -80,7 +84,11 @@ def run_sync(db: Session, source: str = "manual", mode: str = SYNC_MODE_INCREMEN
         for stock in stocks:
             stock_started_at = datetime.now(UTC)
             range_start, range_end = _resolve_sync_window(db, stock, mode)
-            history = build_sample_history(stock) if force_sample_mode else _download_history(stock.yahoo_ticker, mode=mode, start_date=range_start)
+            history = (
+                build_sample_history(stock)
+                if force_sample_mode
+                else _download_history_with_retry(stock.yahoo_ticker, mode=mode, start_date=range_start)
+            )
             if history.empty:
                 if source != "api":
                     history = build_sample_history(stock)
@@ -255,6 +263,25 @@ def _download_history(yahoo_ticker: str, mode: str = SYNC_MODE_INCREMENTAL, star
 
     history = history.reset_index()
     history.columns = [_normalize_history_column_name(column) for column in history.columns]
+    return history
+
+
+def _download_history_with_retry(
+    yahoo_ticker: str,
+    mode: str = SYNC_MODE_INCREMENTAL,
+    start_date: date | None = None,
+    attempts: int = DOWNLOAD_RETRY_ATTEMPTS,
+    retry_delay_seconds: float = DOWNLOAD_RETRY_DELAY_SECONDS,
+) -> pd.DataFrame:
+    history = pd.DataFrame()
+
+    for attempt in range(1, attempts + 1):
+        history = _download_history(yahoo_ticker, mode=mode, start_date=start_date)
+        if not history.empty:
+            return history
+        if attempt < attempts:
+            time.sleep(retry_delay_seconds)
+
     return history
 
 
