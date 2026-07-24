@@ -4,10 +4,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
+from app.db.init_db import _apply_sqlite_legacy_migrations
 from app.main import create_app
 from app.models.chart_highlight_date import ChartHighlightDate
 from app.models.stock import Stock
@@ -15,6 +16,7 @@ from app.models.stock_comment import StockComment
 from app.models.stock_indicator import StockIndicator
 from app.models.stock_price_history import StockPriceHistory
 from app.models.sync_log import SyncLog
+from app.models.sync_log_stock import SyncLogStock
 
 
 def build_test_client(tmp_path: Path) -> tuple[TestClient, sessionmaker[Session]]:
@@ -36,6 +38,81 @@ def build_test_client(tmp_path: Path) -> tuple[TestClient, sessionmaker[Session]
 
     app.dependency_overrides[get_db] = override_get_db
     return TestClient(app), testing_session_local
+
+
+def test_sqlite_legacy_schema_is_upgraded_for_new_sync_columns(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy.db"
+    legacy_engine = create_engine(f"sqlite:///{db_path.as_posix()}", connect_args={"check_same_thread": False})
+
+    with legacy_engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE stocks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol VARCHAR(50) NOT NULL,
+                    company_name VARCHAR(255) NOT NULL,
+                    industry VARCHAR(255) NOT NULL,
+                    series VARCHAR(20),
+                    isin_code VARCHAR(50),
+                    yahoo_ticker VARCHAR(100) NOT NULL,
+                    is_active BOOLEAN,
+                    is_favorite BOOLEAN,
+                    in_watchlist BOOLEAN,
+                    manual_rank INTEGER,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE sync_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    started_at DATETIME NOT NULL,
+                    finished_at DATETIME,
+                    status VARCHAR(50) NOT NULL,
+                    stocks_processed INTEGER,
+                    stocks_updated INTEGER,
+                    error_message TEXT,
+                    source VARCHAR(100),
+                    created_at DATETIME
+                )
+                """
+            )
+        )
+
+    from app.db import init_db as init_db_module
+
+    original_engine = init_db_module.engine
+    try:
+        init_db_module.engine = legacy_engine
+        _apply_sqlite_legacy_migrations()
+    finally:
+        init_db_module.engine = original_engine
+
+    with legacy_engine.connect() as connection:
+        stock_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('stocks')")).fetchall()
+        }
+        sync_log_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('sync_logs')")).fetchall()
+        }
+        sync_log_stock_tables = {
+            row[0]
+            for row in connection.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        }
+
+    assert "last_sync_status" in stock_columns
+    assert "last_sync_at" in stock_columns
+    assert "last_sync_message" in stock_columns
+    assert "failed_stocks" in sync_log_columns
+    assert "mode" in sync_log_columns
+    assert "sync_log_stocks" in sync_log_stock_tables
 
 
 def seed_test_data(session_factory: sessionmaker[Session]) -> None:
@@ -105,7 +182,26 @@ def seed_test_data(session_factory: sessionmaker[Session]) -> None:
                 status="success",
                 stocks_processed=200,
                 stocks_updated=200,
+                failed_stocks=1,
                 source="bootstrap",
+                mode="full",
+            )
+        )
+        db.flush()
+        latest_log = db.query(SyncLog).order_by(SyncLog.id.desc()).first()
+        db.add(
+            SyncLogStock(
+                sync_log_id=latest_log.id,
+                stock_id=stock.id,
+                symbol_snapshot=stock.symbol,
+                sync_mode="full",
+                status="failed",
+                message="No market data returned",
+                range_start=datetime(2026, 7, 1, tzinfo=UTC).date(),
+                range_end=datetime(2026, 7, 22, tzinfo=UTC).date(),
+                started_at=datetime(2026, 7, 22, 9, 0, tzinfo=UTC),
+                finished_at=datetime(2026, 7, 22, 9, 0, 30, tzinfo=UTC),
+                rows_written=0,
             )
         )
         db.commit()
@@ -146,13 +242,20 @@ def test_reorder_and_sync_status_endpoints(tmp_path: Path) -> None:
     reorder_response = client.post("/api/stocks/reorder", json={"items": [{"symbol": "ABB", "manualRank": 1}]})
     status_response = client.get("/api/sync/status")
     logs_response = client.get("/api/sync/logs")
+    detail_response = client.get("/api/sync/logs/1")
 
     assert reorder_response.status_code == 200
     assert reorder_response.json()["data"]["items"][0]["manualRank"] == 1
     assert status_response.status_code == 200
     assert status_response.json()["data"]["status"] == "success"
+    assert status_response.json()["data"]["mode"] == "full"
+    assert status_response.json()["data"]["failedStocks"] == 1
     assert logs_response.status_code == 200
     assert logs_response.json()["data"]["items"][0]["source"] == "bootstrap"
+    assert logs_response.json()["data"]["items"][0]["mode"] == "full"
+    assert detail_response.status_code == 200
+    assert detail_response.json()["data"]["items"][0]["symbol"] == "ABB"
+    assert detail_response.json()["data"]["items"][0]["status"] == "failed"
 
 
 def test_stock_comment_endpoints_create_update_and_delete_entries(tmp_path: Path) -> None:

@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, utc_now
 
 
 class Stock(Base):
@@ -25,8 +25,11 @@ class Stock(Base):
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
     in_watchlist: Mapped[bool] = mapped_column(Boolean, default=False)
     manual_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_sync_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_sync_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
     price_history = relationship("StockPriceHistory", back_populates="stock", cascade="all, delete-orphan")
     indicators = relationship("StockIndicator", back_populates="stock", cascade="all, delete-orphan")

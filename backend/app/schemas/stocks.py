@@ -15,6 +15,10 @@ class StockListItem(BaseModel):
     isFavorite: bool
     inWatchlist: bool
     manualRank: int | None
+    lastSyncStatus: str | None = None
+    lastSyncAt: datetime | None = None
+    lastSyncMessage: str | None = None
+    canRetrySync: bool = False
 
 
 class StockListData(BaseModel):
@@ -36,6 +40,10 @@ class StockDetailData(BaseModel):
     isFavorite: bool
     inWatchlist: bool
     lastUpdatedAt: datetime | None
+    lastSyncStatus: str | None = None
+    lastSyncAt: datetime | None = None
+    lastSyncMessage: str | None = None
+    canRetrySync: bool = False
 
 
 class StockCommentItem(BaseModel):

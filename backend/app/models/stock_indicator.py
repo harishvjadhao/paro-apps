@@ -3,7 +3,7 @@ from datetime import date, datetime
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, utc_now
 
 
 class StockIndicator(Base):
@@ -20,7 +20,7 @@ class StockIndicator(Base):
     moving_average_44: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_above_44_ma: Mapped[bool] = mapped_column(Boolean, default=False)
     percent_above_44_ma: Mapped[float | None] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
     stock = relationship("Stock", back_populates="indicators")

@@ -80,6 +80,10 @@ def get_stock_list(db: Session) -> list[dict]:
                 "isFavorite": stock.is_favorite,
                 "inWatchlist": stock.in_watchlist,
                 "manualRank": stock.manual_rank,
+                "lastSyncStatus": stock.last_sync_status,
+                "lastSyncAt": stock.last_sync_at,
+                "lastSyncMessage": stock.last_sync_message,
+                "canRetrySync": stock.last_sync_status in {"failed", "partial"},
             }
         )
 
@@ -123,6 +127,10 @@ def get_stock_detail(db: Session, symbol: str) -> dict | None:
         "isFavorite": stock.is_favorite,
         "inWatchlist": stock.in_watchlist,
         "lastUpdatedAt": indicator.updated_at if indicator else None,
+        "lastSyncStatus": stock.last_sync_status,
+        "lastSyncAt": stock.last_sync_at,
+        "lastSyncMessage": stock.last_sync_message,
+        "canRetrySync": stock.last_sync_status in {"failed", "partial"},
     }
 
 

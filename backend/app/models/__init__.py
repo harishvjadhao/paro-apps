@@ -4,5 +4,6 @@ from app.models.stock_comment import StockComment
 from app.models.stock_indicator import StockIndicator
 from app.models.stock_price_history import StockPriceHistory
 from app.models.sync_log import SyncLog
+from app.models.sync_log_stock import SyncLogStock
 
-__all__ = ["ChartHighlightDate", "Stock", "StockComment", "StockIndicator", "StockPriceHistory", "SyncLog"]
+__all__ = ["ChartHighlightDate", "Stock", "StockComment", "StockIndicator", "StockPriceHistory", "SyncLog", "SyncLogStock"]

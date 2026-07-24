@@ -6,10 +6,10 @@ This repository contains a local full-stack application for browsing, syncing, a
 
 Core application flow is implemented.
 
-The backend now supports two practical data paths:
+The backend supports two practical data paths:
 
-- Default local bootstrap path: sample market data is generated into SQLite so the UI is immediately usable even when `yfinance` is blocked by local SSL or network restrictions.
-- Real sync path: the UI `Sync` button still calls the live backend sync endpoint, which attempts to fetch real Yahoo Finance data and reports partial failure if data cannot be fetched.
+- Default local bootstrap path: sample market data can be generated into SQLite so the UI is immediately usable even when `yfinance` is blocked by local SSL or network restrictions.
+- Real sync path: the UI sync controls call the live backend sync endpoint, which fetches real Yahoo Finance data and reports partial failure only for symbols that actually fail to download.
 
 ## Structure
 
@@ -30,7 +30,7 @@ cd backend
 python -m pip install -r requirements.txt
 ```
 
-Seed stock metadata and populate local sample-backed market data:
+Seed stock metadata and populate local market data:
 
 ```bash
 cd backend
@@ -58,7 +58,7 @@ Run the dev server:
 
 ```bash
 cd frontend
-npm run dev
+npm run dev -- --host
 ```
 
 Build the frontend:
@@ -72,8 +72,11 @@ npm run build
 
 - `.env.example` defaults `BACKEND_DATA_SOURCE_MODE=mock`.
 - In `mock` mode, local bootstrap syncs populate SQLite using deterministic sample price history so the app can render populated stock data offline or behind restrictive SSL interception.
-- `POST /api/sync` still attempts live `yfinance` retrieval for the UI sync button.
-- If live sync cannot fetch data, sync status and logs report the partial failure instead of silently pretending fresh data was loaded.
+- `POST /api/sync` uses live `yfinance` retrieval for the UI sync controls even when the default bootstrap path is mock-backed.
+- Incremental and single-stock syncs mark a stock as partial when Yahoo returns data but there are no new rows to insert.
+- Full sync now clears existing price history and indicator rows for the target stocks before fetching one year of data again.
+- If live sync cannot fetch data for a symbol, sync status and logs report the partial failure instead of silently pretending fresh data was loaded.
+- On startup, the backend now applies lightweight SQLite schema upgrades for older local databases so newly added stock-sync columns and sync-log fields do not require a manual DB reset.
 
 ## Verified Commands
 
@@ -93,4 +96,4 @@ Notes:
 
 - The frontend build succeeds in the current environment, but Vite prints a Node engine warning because the installed Node version is `20.9.0` and Vite 7 prefers `20.19+`.
 - Frontend tests use `jsdom` with Vitest and are currently pinned to a Node-compatible `jsdom` version for this environment.
-- Live `yfinance` requests currently fail in this environment due to a certificate chain restriction, which is why the sample-data bootstrap path is enabled for normal local usage.
+- Live `yfinance` requests were verified in this environment during recent sync checks, including real single-stock and full-sync runs.

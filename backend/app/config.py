@@ -15,7 +15,10 @@ class Settings(BaseSettings):
 
     @property
     def sqlite_url(self) -> str:
+        config_root = Path(__file__).resolve().parents[2]
         db_file = Path(self.db_path)
+        if not db_file.is_absolute():
+            db_file = (config_root / db_file).resolve()
         return f"sqlite:///{db_file.as_posix()}"
 
 

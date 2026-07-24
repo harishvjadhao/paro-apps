@@ -5,16 +5,16 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.sync_log import SyncLog
 from app.schemas.common import ApiResponse
-from app.schemas.sync import SyncLogItem, SyncLogListData, SyncStatusData
-from app.services.sync_service import get_latest_sync_status, run_sync
+from app.schemas.sync import SyncLogDetailData, SyncLogItem, SyncLogListData, SyncStatusData, SyncTriggerRequest
+from app.services.sync_service import get_latest_sync_status, get_sync_log_detail, run_sync
 
 
 router = APIRouter(prefix="/sync")
 
 
 @router.post("", response_model=ApiResponse[SyncStatusData])
-def trigger_sync(db: Session = Depends(get_db)) -> ApiResponse[SyncStatusData]:
-    result = run_sync(db, source="api")
+def trigger_sync(payload: SyncTriggerRequest, db: Session = Depends(get_db)) -> ApiResponse[SyncStatusData]:
+    result = run_sync(db, source="api", mode=payload.mode, symbol=payload.symbol)
     data = SyncStatusData(
         status=result.status,
         lastSuccessfulSyncAt=result.last_successful_sync_at,
@@ -22,6 +22,8 @@ def trigger_sync(db: Session = Depends(get_db)) -> ApiResponse[SyncStatusData]:
         stocksProcessed=result.stocks_processed,
         stocksUpdated=result.stocks_updated,
         errorMessage=result.error_message,
+        mode=result.mode,
+        failedStocks=result.failed_stocks,
     )
     return ApiResponse(success=result.status != "failed", data=data, message="Sync executed")
 
@@ -36,6 +38,8 @@ def sync_status(db: Session = Depends(get_db)) -> ApiResponse[SyncStatusData]:
         stocksProcessed=result.stocks_processed,
         stocksUpdated=result.stocks_updated,
         errorMessage=result.error_message,
+        mode=result.mode,
+        failedStocks=result.failed_stocks,
     )
     return ApiResponse(success=True, data=data, message="Sync status fetched successfully")
 
@@ -53,7 +57,15 @@ def sync_logs(db: Session = Depends(get_db)) -> ApiResponse[SyncLogListData]:
             stocksUpdated=log.stocks_updated,
             errorMessage=log.error_message,
             source=log.source,
+            mode=log.mode,
+            failedStocks=log.failed_stocks,
         )
         for log in logs
     ]
     return ApiResponse(success=True, data=SyncLogListData(items=items), message="Sync logs fetched successfully")
+
+
+@router.get("/logs/{sync_log_id}", response_model=ApiResponse[SyncLogDetailData])
+def sync_log_detail(sync_log_id: int, db: Session = Depends(get_db)) -> ApiResponse[SyncLogDetailData]:
+    detail = get_sync_log_detail(db, sync_log_id)
+    return ApiResponse(success=detail is not None, data=SyncLogDetailData(**detail) if detail else None, message="Sync log detail fetched successfully")
