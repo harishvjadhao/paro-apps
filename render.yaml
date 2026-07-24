@@ -2,18 +2,19 @@ services:
   - type: web
     name: paro-apps-backend
     runtime: python
-    runtimeVersion: 3.12.3
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
       - key: BACKEND_DATA_SOURCE_MODE
         value: api
       - key: BACKEND_CORS_ORIGIN
         sync: false
       - key: BACKEND_DB_PATH
         value: /var/data/app.db
-    disks:
-      - name: backend-data
-        mountPath: /var/data
-        sizeGB: 1
+    disk:
+      name: backend-data
+      mountPath: /var/data
+      sizeGB: 1

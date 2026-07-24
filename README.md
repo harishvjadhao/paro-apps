@@ -122,7 +122,7 @@ Important constraints:
 
 ### Deploy Backend To Render
 
-Render should use Python `3.12.3` for this backend. The current dependency set relies on prebuilt wheels for packages like `pydantic-core` and `pandas`, and Render's default Python `3.14.x` can force unsupported source builds.
+Render should use Python `3.12.3` for this backend. The current dependency set relies on prebuilt wheels for packages like `pydantic-core` and `pandas`, and Render's default Python `3.14.x` can force unsupported source builds. This repo pins that version with both `.python-version` and the `PYTHON_VERSION` environment variable in `render.yaml`.
 
 1. Push the repository to GitHub.
 2. In Render, create a new Blueprint or Web Service from the repo.
