@@ -2,6 +2,7 @@ services:
   - type: web
     name: paro-apps-backend
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -13,8 +14,4 @@ services:
       - key: BACKEND_CORS_ORIGIN
         sync: false
       - key: BACKEND_DB_PATH
-        value: /var/data/app.db
-    disk:
-      name: backend-data
-      mountPath: /var/data
-      sizeGB: 1
+        value: /opt/render/project/src/backend/data/app.db

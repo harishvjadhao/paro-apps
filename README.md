@@ -117,7 +117,7 @@ Important constraints:
 
 - This is suitable for demo purposes only.
 - SQLite remains a single-file database and is not a robust production multi-instance setup.
-- Render must use a persistent disk, otherwise sync data and comments will be lost on redeploy or restart.
+- On Render free tier, there is no persistent disk, so SQLite data and comments will be lost on redeploy or restart.
 - Free-tier cold starts and long sync times can make full syncs feel slow.
 
 ### Deploy Backend To Render
@@ -128,10 +128,10 @@ Render should use Python `3.12.3` for this backend. The current dependency set r
 2. In Render, create a new Blueprint or Web Service from the repo.
 3. Use the `render.yaml` file at the repository root.
 4. Confirm the service root directory is `backend`.
-5. Attach the persistent disk defined in `render.yaml` so SQLite lives at `/var/data/app.db`.
+5. Choose the `free` instance type.
 6. Set `BACKEND_CORS_ORIGIN` to your deployed frontend origin.
-7. Override `BACKEND_DB_PATH=/var/data/app.db` if you are not using the default from `render.yaml`.
-8. Keep `BACKEND_DATA_SOURCE_MODE=api` on Render so UI syncs use live Yahoo data.
+7. Keep `BACKEND_DATA_SOURCE_MODE=api` on Render so UI syncs use live Yahoo data.
+8. Keep the default `BACKEND_DB_PATH=/opt/render/project/src/backend/data/app.db` unless you change the app layout.
 
 Example:
 
@@ -179,7 +179,7 @@ VITE_API_BASE_URL=https://your-render-service.onrender.com/api
 
 1. Push the repo to GitHub.
 2. Deploy the backend on Render from `render.yaml`.
-3. Confirm the Render disk is mounted and `BACKEND_CORS_ORIGIN` is set.
+3. Confirm `BACKEND_CORS_ORIGIN` is set on Render.
 4. Seed stocks on Render.
 5. Optionally run one initial sync on Render.
 6. Deploy the frontend on Vercel with `frontend` as the root.
